@@ -221,6 +221,7 @@ make clean
     - [`rex.md`](docs/rex.md)：x86-64 REX 前綴與 REX.W 深度解析（機器碼結構、32 位元高位清零機制、8 位元暫存器重對映與編譯器代碼密度最佳化）。
     - [`registers.md`](docs/registers.md)：x86 全系列暫存器大全與 45 年演進史（GPR、向量 SIMD、段暫存器、CR/MSR 控制暫存器、AMX 與 Intel APX 全景解析）。
     - [`latency.md`](docs/latency.md)：低延遲軟體開發指南：Intel & AMD 晶片手冊中的微架構黑魔法與防坑手冊（RDTSC 亂序防火牆、PAUSE 延遲突變、Split Lock、STLF 轉發失敗與 C-State 鎖定）。
+    - [`memory_order.md`](docs/memory_order.md)：記憶體模型全解（Intel 8 大 TSO 定序契約、Store Buffer 物理機制、C++11 六大記憶體序在 x86 上的「免費午餐」與跨架構對比）。
 - **[`makefile`](makefile)**
   - 編譯選項：`-nostdlib -march=native -g -no-pie -Wa,-I$(CURDIR)/include -Wa,-Iinclude`。
   - 支援目標：`make all`, `make demo`, `make perf`, `make run`, `make run-demo`, `make run-perf`, `make clean`。
