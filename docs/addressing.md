@@ -20,7 +20,7 @@ GNU Assembler (as) 會立刻毫不留情地噴出組譯錯誤：`invalid scale f
 
 ## 一、 中括號 `[]` 的基本意涵：指標解引用 vs. 算術求值
 
-在 Intel 組合語言語法中，中括號 `[]` 代表**「位址計算（Address Evaluation）」**。
+在 Intel 組合語言語法中，中括號 `[]` 代表 **「位址計算（Address Evaluation）」**。
 
 但根據搭配的指令不同，`[]` 具有兩種截然不同的行為：
 

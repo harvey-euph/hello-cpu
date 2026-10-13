@@ -218,6 +218,7 @@ make clean
     - [`cache.md`](docs/cache.md)：CPU 快取控制（clflushopt/clwb/cldemote）、記憶體屏障（sfence/lfence/mfence）、非暫態寫入與預取指令解析指南。
     - [`args.md`](docs/args.md)：x86-64 函式呼叫與參數傳遞指南（System V AMD64 ABI、暫存器傳參順序、Caller/Callee-saved 責任劃分與堆疊對齊）。
     - [`addressing.md`](docs/addressing.md)：深入解析 x86-64 記憶體定址與 SIB 位元組：為什麼是 `[rax + rax*2]` 而不是 `[rax*3]`？
+    - [`rex.md`](docs/rex.md)：x86-64 REX 前綴與 REX.W 深度解析（機器碼結構、32 位元高位清零機制、8 位元暫存器重對映與編譯器代碼密度最佳化）。
 - **[`makefile`](makefile)**
   - 編譯選項：`-nostdlib -march=native -g -no-pie -Wa,-I$(CURDIR)/include -Wa,-Iinclude`。
   - 支援目標：`make all`, `make demo`, `make perf`, `make run`, `make run-demo`, `make run-perf`, `make clean`。
