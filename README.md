@@ -224,6 +224,7 @@ make clean
     - [`memory_order.md`](docs/memory_order.md)：記憶體模型全解（Intel 8 大 TSO 定序契約、Store Buffer 物理機制、C++11 六大記憶體序在 x86 上的「免費午餐」與跨架構對比）。
     - [`lock.md`](docs/lock.md)：x86-64 LOCK 前綴與原子指令全解（硬體白名單、隱式 XCHG、MESI 快取鎖、四大天王指令與 LOCK vs. MFENCE 微架構對決）。
     - [`microcode.md`](docs/microcode.md)：CPU 微碼（Microcode）深度解析（CISC/RISC 融合架構、MSROM 解碼器、Patch RAM 線上熱修補機制與微碼效能開銷）。
+    - [`nic.md`](docs/nic.md)：PCIe、Intel DDIO 與高效能網卡（NIC）微架構全解（Snoop DMA 延遲懲罰、TLP 定序鐵律、DDIO 直通 L3、描述元環與 DPDK 核心旁路）。
 - **[`makefile`](makefile)**
   - 編譯選項：`-nostdlib -march=native -g -no-pie -Wa,-I$(CURDIR)/include -Wa,-Iinclude`。
   - 支援目標：`make all`, `make demo`, `make perf`, `make run`, `make run-demo`, `make run-perf`, `make clean`。

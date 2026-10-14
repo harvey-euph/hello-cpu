@@ -284,6 +284,9 @@ PCIe 設備的 BAR（Base Address Register）空間常被作業系統配置為 *
 
 在很多舊款 Intel 微架構中，執行一條 `xchg` 指令的開銷（約 15~20 cycles）竟然**顯著低於**執行 `mov + mfence`（`mfence` 可能耗時 30~50 cycles）！因此 GCC 和 Clang 至今在 64 位元模式下生成 `seq_cst` 寫入時，依然偏好直接發射 `xchg` 指令。
 
+> [!TIP]
+> 關於為什麼做更多事情的 `LOCK` 指令（L1 快取鎖硬體狀態機）在微架構上能勝過純屏障的 `MFENCE`（早期微碼管線氣泡）的深度剖析，請詳見專題文件 **[`docs/lock.md`](lock.md#六深度對決lock-真的比-mfence-更好嗎)**。
+
 ---
 
 ## 八、跨架構震撼對比：x86 (TSO) vs. ARM64 (Weak Ordering)

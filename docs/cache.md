@@ -6,6 +6,9 @@
 
 ## 目錄
 1. [現代 CPU 快取架構基礎概念](#一現代-cpu-快取架構基礎概念)
+   * [1.1 核心快取階層與關鍵術語](#1-核心快取階層與關鍵術語)
+   * [1.2 L3 快取共享拓撲：所有核心都共享 L3 嗎？](#2-l3-快取共享拓撲所有核心都共享-l3-嗎)
+   * [1.3 快取包含策略（Cache Inclusion Policy）](#3-快取包含策略cache-inclusion-policy-l1-的資料在-l2l3-也有備份嗎)
 2. [快取行清除、寫回與降級指令](#二快取行清除寫回與降級指令)
 3. [記憶體屏障指令（Fences）](#三記憶體屏障指令fences)
 4. [非暫態存取指令（Non-Temporal / 繞過快取）](#四非暫態存取指令non-temporal--繞過快取)
@@ -35,11 +38,32 @@ flowchart TD
     L3 <--> DRAM
 ```
 
-### 關鍵術語
+### 1. 核心快取階層與關鍵術語
 * **快取行（Cache Line）**：CPU 快取與記憶體資料交換的**最小基本單位**。在幾乎所有現代 x86-64 處理器上，快取行大小固定為 **64 位元組（64 Bytes）**。
 * **Dirty（髒資料）**：快取中的資料已被 CPU 寫入修改，但尚未同步寫回主記憶體。
 * **Clean（乾淨資料）**：快取中的資料與主記憶體內容一致。
 * **MESI / MOESI 協定**：多核心處理器透過匯流排監聽（Bus Snooping）維持各核心快取資料一致性的硬體狀態機。
+
+### 2. L3 快取共享拓撲：所有核心都共享 L3 嗎？
+許多人誤以為 L3 永遠是所有 CPU 核心共享的，但現代處理器架構分化出多種拓撲：
+* **Intel 單晶片架構（Ring Bus）**：消費級 Core 系列中，所有核心掛載在環形匯流排上，L3 物理上拆為多個 Slices，但透過雜湊對映，**邏輯上全核心平等共享全部 L3（稱為 LLC, Last Level Cache）**。
+* **AMD Zen 架構（CCX / CCD 分割）**：
+  * Zen 1 / Zen 2：晶片被切為兩個獨立 CCX（4 核 + 4 核），各自擁有獨立 L3，**跨 CCX 完全不共享**，存取需走 Infinity Fabric（延遲從 10ns 暴增至 40~80ns）。
+  * Zen 3+ 與雙 CCD 型號（如 Ryzen 9 7950X）：單 CCD 內 8 核共享 32MB L3，但**跨 CCD 之間 L3 仍互不共享**。
+* **企業級多路伺服器（Multi-Socket NUMA）**：Socket 0 核心絕對無法直接存取 Socket 1 的 L3，跨路存取必須經由 UPI 或 IF 匯流排（100~200ns）。
+* **Intel 伺服器分群（SNC, Sub-NUMA Clustering）**：單顆 Xeon 晶片在 Mesh 網格過大時，可在 BIOS 中將 L3 切割為 2~4 個獨立 NUMA 節點，僅供半邊核心使用。
+
+### 3. 快取包含策略（Cache Inclusion Policy）：L1 的資料在 L2/L3 也有備份嗎？
+* **包容式（Inclusive Cache）**：
+  * **規則**：L1 有的，L2 與 L3 必定嚴格複製一份備份（Intel 經典 Core 架構）。
+  * **優點（Snoop Filter）**：其他核心欲確認快取狀態時，只需詢問 L3，若 L3 沒有則 100% 確定任何核心的私有 L1 都沒有，省去跨核心廣播。
+  * **缺點（Back-Invalidation）**：L3 滿了逐出資料時，會向 L1/L2 發送反向失效訊號，把熱點資料硬生生殺死。
+* **排他式（Exclusive Cache）**：
+  * **規則**：L1 有的，L2/L3 絕對沒有；L1 逐出的資料才降級填入 L2/L3（AMD 早期 K7/K8）。
+  * **優點**：有效容量 100% 累加；**缺點**：資料搬遷與換入換出（Swap）頻繁。
+* **非包容非排他（Non-Inclusive / NINE）**：
+  * **規則**：L1 有的，L2/L3 可有可無，L3 逐出時不反向殺死 L1（現代 AMD Zen 全系列、Intel 現代 Xeon 伺服器）。
+  * **動機**：現代 CPU 核心數暴增且私有 L2 巨大（每核心 1~2MB），若仍採用 Inclusive 會導致 L3 被重複備份資料吞噬。一致性改由獨立的 Snoop Filter 目錄維護。
 
 ---
 
@@ -71,15 +95,17 @@ flowchart TD
 * **行為**：
   * 若快取行為 Dirty，將其**寫回主記憶體**，但**不從快取中逐出**（保留該行，將狀態標記為 Clean）。
 * **核心價值**：
-  * 專為**持久記憶體（Persistent Memory / NVDIMM）**設計：既保證資料已經落盤安全，又讓 CPU 下次讀取時仍能享受快取命中（Cache Hit），避免後續讀取產生 DRAM 延遲。
+  * 專為**持久記憶體 (Persistent Memory / NVDIMM)** 設計：既保證資料已經落盤安全，又讓 CPU 下次讀取時仍能享受快取命中（Cache Hit），避免後續讀取產生 DRAM 延遲。
 
 ### 4. `cldemote`（Cache Line Demote）
 * **引入架構**：Tremont / Alder Lake（第 12 代 Core）
 * **語法**：`cldemote [m8]`
 * **行為**：
   * 向硬體發出提示（Hint）：將指定的快取行從**私有快取（L1/L2）主動降級推移至共享快取（L3 / LLC）**。
-* **核心價值**：
-  * **跨核心共享資料加速**：當核心 A 準備把一筆資料交給核心 B 處理時，核心 A 主動 `cldemote` 將資料退至 L3。核心 B 讀取時就不用向核心 A 的私有 L1 發起緩慢的快取一致性探針（Cache Snoop）。
+* **核心價值（消滅跨核心 Cache Snoop 探針）**：
+  * **傳統痛點**：核心 A 寫完資料後，該快取行在核心 A 的 L1 處於 `Modified`（髒資料獨佔）狀態。當核心 B 來讀取時，L3 發現核心 A 持有獨佔髒資料，**被迫發送跨核心 Cache Snoop 探針打斷核心 A 索討最新資料**，耗時 40~60 週期！
+  * **`cldemote` 微架構解法**：核心 A 算完後主動執行 `cldemote`，硬體會將資料提前刷入 L3，並**即時更新 L3 快取標籤中的「核心存在向量（Presence Vector）」或硬體「Snoop Filter 目錄」**，將核心 A 的狀態從 Modified 抹除！
+  * **零探針效果（Zero Snoop）**：後續核心 B 來讀取時，L3 / Snoop Filter 查閱戶籍簿確認「L3 擁有最新資料，且無任何核心在私有快取中持有髒資料」，**L3 直接以 10~15 週期極速回傳資料，完全不需打擾核心 A**。
 
 ---
 
@@ -114,14 +140,14 @@ x86 架構採用 **TSO（Total Store Order）** 強記憶體模型，硬體**只
 
 ```mermaid
 flowchart LR
-    subgraph 一般寫入
-        A1[CPU] -->|寫入| B1[L1/L2/L3 快取 (排擠熱資料)]
-        B1 -->|最終寫回| C1[RAM]
+    subgraph NormalWrite ["一般寫入"]
+        A1["CPU"] -->|寫入| B1["L1/L2/L3 快取 (排擠熱資料)"]
+        B1 -->|最終寫回| C1["RAM"]
     end
     
-    subgraph 非暫態寫入 (Streaming Store)
-        A2[CPU] -->|繞過快取| B2[Write-Combining Buffer (WC)]
-        B2 -->|批次直通寫入| C2[RAM]
+    subgraph StreamWrite ["非暫態寫入 (Streaming Store)"]
+        A2["CPU"] -->|繞過快取| B2["Write-Combining Buffer (WC)"]
+        B2 -->|批次直通寫入| C2["RAM"]
     end
 ```
 

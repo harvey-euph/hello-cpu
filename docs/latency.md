@@ -124,6 +124,9 @@ struct alignas(64) OrderBookSlot {
 * **延遲代價**：整台機器的所有 CPU 核心通通被迫停機等待數千個時脈週期（數微秒的巨幅延遲尖峰）！
 * **Linux 核心制裁**：現代 Linux 核心引入了 `/proc/sys/kernel/split_lock_mitigate` 機制，若偵測到使用者行程觸發 Split Lock，核心會強制讓該行程睡眠甚至拋出 `SIGBUS` 崩潰。
 
+> [!NOTE]
+> 關於 `LOCK` 前綴引發 Bus Lock 與 Cache Lock 的完整微架構原理，請參閱專題文件 **[`docs/lock.md`](lock.md#四微架構演進從物理匯流排鎖到-mesi-快取行鎖)**。
+
 ---
 
 ## 四、Store Buffer 與轉發失敗（Store-to-Load Forwarding Failure）
@@ -174,7 +177,8 @@ Intel 手冊提供了專門用於串流資料的「非暫態（Non-Temporal）�
 
 > [!CAUTION]
 > **弱記憶體序（Weakly Ordered）警告**：  
-> Intel 手冊明定，WC 緩衝區不受 x86 標準 TSO 記憶體序保證！若其他執行緒或網路卡（DMA）需要讀取這塊記憶體，必須在寫入後明確發出 **`SFENCE`（Store Fence）** 指令強制清空 WC 緩衝區，否則其他核心可能長時間看不到最新資料！
+> Intel 手冊明定，WC 緩衝區不受 x86 標準 TSO 記憶體序保證！若其他執行緒或網路卡（DMA）需要讀取這塊記憶體，必須在寫入後明確發出 **`SFENCE`（Store Fence）** 指令強制清空 WC 緩衝區，否則其他核心可能長時間看不到最新資料！  
+> *(完整非暫態指令對照表與 WC 緩衝區架構圖，請參閱專題文件 **[`docs/cache.md`](cache.md#四非暫態存取指令non-temporal--繞過快取)**)*。
 
 ---
 
@@ -237,6 +241,9 @@ Intel Manual Vol 4 指出，可以透過特權指令寫入 MSR `0x1A4`（`IA32_M
 * **Bit 1**：關閉 L2 Adjacent Cache Line Prefetcher
 * **Bit 2**：關閉 DCU Streamer Prefetcher (L1 Data)
 * **Bit 3**：關閉 DCU IP Prefetcher
+
+> [!TIP]
+> 關於 x86-64 提供的各層級軟體預取指令（`prefetcht0/t1/t2/nta`），請參閱專題文件 **[`docs/cache.md`](cache.md#五軟體快取預取指令software-prefetching)**。
 
 ---
 
