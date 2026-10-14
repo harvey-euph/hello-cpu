@@ -91,6 +91,7 @@ x86 架構採用 **TSO（Total Store Order）** 強記憶體模型，硬體**只
 * **作用範圍**：僅管 **寫入（Store）** 與 **快取刷新（Flush）**。
 * **保證**：所有在 `sfence` 之前的寫入、`clflushopt`、`clwb` 以及非暫態寫入，在 `sfence` 之後的任何寫入執行前，**必須對全域可見**。
 * **開銷**：輕量，不會卡住讀取管線。
+* **實戰必用場景**：非暫態串流寫入（`MOVNT` 刷空 WC 緩衝區）、持久記憶體交易提交（`CLWB` + `SFENCE`）、PCIe/網卡 MMIO 門鈴防脫節（詳見 [`docs/memory_order.md`](memory_order.md)）。
 
 ### 2. `lfence`（Load Fence，讀取屏障）
 * **作用範圍**：僅管 **讀取（Load）**。

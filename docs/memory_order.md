@@ -80,7 +80,7 @@ b = 2;
 3. **寫操作不會被重排到先前的讀操作之前（No Load-Store Reordering）**：  
    先讀取 `Load A`，再寫入 `Store B`，硬體絕不會先把 B 寫入而把 A 延後。
 4. **⚠️ 唯一允許的硬體重排序：讀操作可以超前於更早的寫操作（Store-Load Reordering）**！  
-   若先發動 `Store A`，緊接著發動讀取不同位址的 `Load B`，硬體允許 `Load B` 在 `Store A` 真正落入快取之前就完成讀取！
+   若先發動 `Store A`，緊接著發動讀取不同位址的 ` Load B`，硬體允許 `Load B` 在 `Store A` 真正落入快取之前就完成讀取！
 5. **同一記憶體位址的操作嚴格保持程式順序（Coherence）**：  
    若針對同一位址先寫再讀，讀取必會立即讀到剛剛寫入的新值（透過 Store Forwarding）。
 6. **寫操作具有全域一致順序（Total Store Order）**：  
@@ -208,8 +208,67 @@ x86 屏障家族阻斷方向圖:
                 Load B           Store B
 ```
 
-### 1. `SFENCE`（Store Fence）
-* 針對寫操作。強制等待之前發起的所有 Store（包括非暫態 `MOVNT` 寫入）完全刷入快取，保證後方的 Store 不會超越先前的 Store。
+### 1. `SFENCE`（Store Fence，寫入屏障）深度剖析
+
+#### 核心悖論：既然 x86 TSO 已保證 Store-Store 不重排，為什麼還需要 `SFENCE`？
+在 x86-64 的 TSO（Total Store Order）記憶體模型下，**普通記憶體（Write-Back 類型）的寫入操作在硬體層級天生保證永不重排序**！
+既然如此，Intel / AMD 為什麼還要設計 `SFENCE`？
+
+> **根本原因**：因為 CPU 晶片內部存在**「脫離 TSO 律法管轄」的灰色地帶（弱記憶體序與非同步緩衝區）**！
+
+#### `SFENCE` 必用的四大核心實戰場景：
+
+##### (1) 非暫態串流寫入（Non-Temporal Stores）與資料發布
+當使用 `MOVNTI`, `MOVNTDQ` 等指令寫入大量資料（如音視訊串流、網路封包記錄、高速 `memcpy`）時，CPU 為了防止污染 L1/L2 快取，會直接繞過快取，將資料寫入 CPU 內部的 **Write-Combining (WC) 填補緩衝區**。
+* **致命弱點**：**WC 緩衝區不受 TSO 保護，它是弱記憶體序（Weakly-Ordered）！**
+* **資料競爭風險**：
+  ```assembly
+  # ❌ 典型併發 Bug（缺少 SFENCE）：
+  movntdq [buffer], xmm0        # (1) 繞過快取寫入 16 bytes 資料 (進 WC 緩衝區)
+  movntdq [buffer + 16], xmm1   # (2) 繞過快取寫入 16 bytes 資料 (進 WC 緩衝區)
+  mov byte ptr [data_ready], 1  # (3) 普通寫入：立起 ready 旗標 (進普通 L1 快取)
+  ```
+  在微架構層面，`(3)` 是一次普通的快取寫入，它透過極速的 MESI 快取協定瞬間對其他核心可見；而 `(1)` 和 `(2)` 還滯留在 WC 緩衝區尚未落入記憶體！消費者看到 `data_ready == 1` 去讀 `buffer`，讀到的卻是舊的垃圾資料。
+* **修復方案**：在發布旗標前插入 `SFENCE`，強制將 WC 緩衝區排空刷入記憶體：
+  ```assembly
+  movntdq [buffer], xmm0
+  movntdq [buffer + 16], xmm1
+  sfence                        # 🛑 強制排空 WC 緩衝區，保證資料先行落定！
+  mov byte ptr [data_ready], 1  # 旗標發布
+  ```
+
+##### (2) 非揮發性記憶體（Persistent Memory / NVDIMM）的交易提交（Commit Barrier）
+在 Intel Optane 持久記憶體或 CXL 儲存架構中，修改資料後必須透過快取刷寫指令將其推入非揮發性儲存領域（ADR Domain）：
+* `CLWB`（Cache Line Write Back）：將髒快取行寫回記憶體控制器，但保留快取。
+* `CLFLUSHOPT`（Optimized Cache Line Flush）：高效能並行快取行刷寫。
+* **為什麼需要 SFENCE**：`CLWB` 與 `CLFLUSHOPT` 在微架構上都是**弱序且可並行發射的**！Intel PMDK（Persistent Memory Development Kit）官方規定了標準交易提交序列：
+  ```c
+  pmem_data->value = 9999;
+  _mm_clwb(&pmem_data->value);     // 發起非同步刷回 (弱序)
+  _mm_sfence();                    // 🛑 必須等待資料確定抵達持久記憶體！
+  pmem_data->committed = true;    // 標記交易完成
+  _mm_clwb(&pmem_data->committed);
+  _mm_sfence();                    // 確保 Commit 標記落盤
+  ```
+
+##### (3) PCIe 設備、高速網卡（DPDK / RDMA）與 GPU MMIO 門鈴（Doorbell）
+PCIe 設備的 BAR（Base Address Register）空間常被作業系統配置為 **Write-Combining (WC)** 屬性。
+* 驅動程式向網卡發送封包時，通常先在 WC 記憶體中寫入 TX Ring 描述元（封包指標與長度），最後寫入網卡的 Doorbell（門鈴）暫存器通知網卡開始發送。
+* **若無 SFENCE**：門鈴寫入可能比描述元資料先一步穿過 PCIe 匯流排抵達網卡，導致網卡啟動 DMA 讀取到空資料或引發 PCIe 匯流排錯誤。
+
+##### (4) 快速字串指令（Fast Strings: `REP MOVSB`）的記憶體邊界
+現代 Intel 處理器（具備 ERMS / FSRM 特性）在大區塊記憶體複製（如超過 1KB 的 `rep movsb`）時，微碼內部會自動啟用非暫態串流硬體管線。在複製大塊共享資料後、更新通知旗標前，手冊規定應插入 `SFENCE` 確保內部串流完全落實。
+
+#### 對照速查：什麼時候「需要」vs「不需要」SFENCE？
+
+| 場景分類 | 是否需要 `SFENCE`？ | 微架構本質原因 |
+| :--- | :---: | :--- |
+| **一般 C++ 多執行緒共享變數寫入** | ❌ **不需要** | x86 原生 TSO 嚴格保證普通記憶體的 Store-Store 永不重排。 |
+| **非暫態串流寫入（`movnti`, `movntdq` 等）** | **✅ 絕對需要！** | WC 緩衝區是弱記憶體序，必須透過 `SFENCE` 強制刷出。 |
+| **非揮發性記憶體交易提交（`clwb`, `clflushopt`）** | **✅ 絕對需要！** | 確保資料本體先於 Commit 旗標持久化落盤。 |
+| **PCIe / 網卡 MMIO 門鈴操作（Doorbell）** | **✅ 絕對需要！** | 確保描述元資料在門鈴響起前抵達設備。 |
+| **防禦 Spectre 幽靈漏洞** | ❌ 無用（請用 `LFENCE`） | `SFENCE` 不阻擋指令排程器分派與推測執行。 |
+| **解決 Dekker 演算法 Store-Load 衝突** | ❌ 無用（請用 `MFENCE`） | `SFENCE` 只管寫操作，無法阻止後方的 Load 偷跑超前。 |
 
 ### 2. `LFENCE`（Load Fence）
 * 如 [`docs/latency.md`](docs/latency.md) 所詳解，除了保證弱記憶體序（如 WC 記憶體讀取）不被重排，它最重要的現代用途是作為**推測執行屏障（Speculation Barrier）** 與指令序列化工具，防禦 Spectre 攻擊。
