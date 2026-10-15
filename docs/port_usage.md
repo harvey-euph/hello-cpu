@@ -31,7 +31,7 @@
 現代 CPU 不只是一個單一的「運算大腦」，而是一座內部擁有數十個專屬工段的超級現代化流水線工廠：
 
 ```mermaid
-flowchart TD
+flowchart LR
     subgraph 前端 ["Frontend (指令獲取與解碼)"]
         Fetch["Fetch (取指)"] --> Decode["Decode (解碼為 uops)"]
         Decode --> Rename["Register Rename & Allocate (暫存器重命名)"]
