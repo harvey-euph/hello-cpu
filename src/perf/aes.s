@@ -3,6 +3,7 @@
 
 .include "system.inc"
 .include "print.inc"
+.include "time.inc"
 
 # ==============================================================================
 # AES 加密效能基準測試: AES-NI 硬體指令 vs 純軟體演算法實作
@@ -246,10 +247,7 @@ _start:
     jnz .L_warm
 
     # 2.1 測量硬體 AES-NI (100k iters)
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    mov rbx, rax
+    perf_start rbx
 
     mov ebp, ITERS
 .L_loop_hw:
@@ -259,17 +257,11 @@ _start:
     dec ebp
     jnz .L_loop_hw
 
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    sub rax, rbx
+    perf_end rax, rbx
     push rax               # [rsp] = 硬體耗費週期
 
     # 2.2 測量純軟體演算法 (100k iters)
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    mov rbx, rax
+    perf_start rbx
 
     mov ebp, ITERS
 .L_loop_sw:
@@ -277,10 +269,7 @@ _start:
     dec ebp
     jnz .L_loop_sw
 
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    sub rax, rbx
+    perf_end rax, rbx
     push rax               # [rsp] = 軟體耗費週期, [rsp+8] = 硬體耗費週期
 
     # 印出硬體結果

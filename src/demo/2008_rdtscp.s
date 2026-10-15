@@ -2,6 +2,7 @@
 .global _start
 .include "system.inc"
 .include "print.inc"
+.include "time.inc"
 
 # =============================================================
 # 指令集說明: Intel/AMD RDTSCP (Read Time-Stamp Counter and Processor ID)
@@ -52,22 +53,15 @@ msg_core:   .ascii "目前運行的 CPU Core:  "
 _start:
     sys_print_str msg_title, len_title
 
-    # 1. 第一次讀取 TSC 與 CPU Core ID
-    #    RDTSCP 輸出: edx:eax = 64-bit TSC, ecx = Core ID
-    rdtscp
-    shl rdx, 32
-    or  rax, rdx
-    mov r12, rax           # r12 = 初始 64-bit TSC
-    mov r14d, ecx          # r14d = Core ID (IA32_TSC_AUX)
+    # 1. 第一次讀取 TSC (使用標準 perf_start 巨集)
+    perf_start r12
 
     # 2. 暫停 100 毫秒 (使用 sys_sleep_ms 巨集)
     sys_sleep_ms 100
 
-    # 3. 第二次讀取 TSC (保證 sleep 結束後才採樣計數器)
-    rdtscp
-    shl rdx, 32
-    or  rax, rdx
-    mov r13, rax           # r13 = 100ms 後的 64-bit TSC
+    # 3. 第二次讀取 TSC 與 Core ID (使用標準 perf_end 巨集)
+    perf_end r13
+    mov r14d, ecx          # r14d = Core ID (IA32_TSC_AUX 來自 perf_end 中的 rdtscp)
 
     # 4. 印出 TSC Before
     sys_print_str msg_before, len_before

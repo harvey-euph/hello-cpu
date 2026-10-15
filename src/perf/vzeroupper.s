@@ -3,6 +3,7 @@
 
 .include "system.inc"
 .include "print.inc"
+.include "time.inc"
 
 # -------------------------------------------------------------
 # 基準測試重複次數 (100k 次)
@@ -108,35 +109,17 @@ _start:
     # ---------------------------------------------------------
     # 2. 外部計時測量：有使用 vzeroupper
     # ---------------------------------------------------------
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    mov r12, rax           # r12 = 開始 TSC
-
+    perf_start r12
     call func_with_vzero
-
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    sub rax, r12
-    mov r14, rax           # r14 = 耗費 CPU cycles (WITH)
+    perf_end r14, r12      # r14 = 耗費 CPU cycles (WITH)
 
     # ---------------------------------------------------------
     # 3. 外部計時測量：未使用 vzeroupper
     # ---------------------------------------------------------
     vzeroupper             # 先清空以確保公平起跑
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    mov r12, rax           # r12 = 開始 TSC
-
+    perf_start r12
     call func_without_vzero
-
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    sub rax, r12
-    mov r15, rax           # r15 = 耗費 CPU cycles (WITHOUT)
+    perf_end r15, r12      # r15 = 耗費 CPU cycles (WITHOUT)
 
     vzeroupper             # 測量完畢清理
 

@@ -155,7 +155,7 @@ make clean
 
 ## 支援的 ISA 範例總覽表（依年代排序）
 
-全專案共包含 **25 個 Demo 展示專案** 與 **4 個 Perf 基準測試專案**：
+全專案共包含 **25 個 Demo 展示專案** 與 **6 個 Perf 基準測試專案**：
 
 | 年代 | 類別 | ISA 旗標 | 範例檔案 | 核心代表指令 | 說明 | 執行輸出內容 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -189,6 +189,7 @@ make clean
 | **2011** | | AVX-SSE 懲罰 | [2011_vzeroupper.s](src/perf/2011_vzeroupper.s) | `vzeroupper` | AVX-SSE 轉換懲罰基準測試（100k 次迭代時序對比） | 有/無 vzeroupper 週期與 Penalty 差距 |
 | **2013** | | SIMD 比較 | [2013_simd_add8.s](src/perf/2013_simd_add8.s) | `add`, `paddd`, `vpaddd` | 8 整數加法效能基準測試（純量 vs SSE vs AVX2） | 100 萬次迭代週期對比 |
 | **2013** | | 乘法延遲 | [2013_mul_lat.s](src/perf/2013_mul_lat.s) | `lea`, `imul`, `mul`, `mulx` | x86_64 乘法指令依賴鏈延遲評測（暫存器 vs 記憶體 vs Store-Fwd） | 7 種乘法模式之實際時脈週期與延遲差距 |
+| **-** | | 分支預測 | [branch-predict.s](src/perf/branch-predict.s) | `jl` vs `cmovge` | 分支預測效能基準測試（已排序 vs 未排序陣列條件累加 vs 無分支 CMOV） | 6,553 萬次判斷週期對比、Sum 驗證與 4~5x 延遲差距 |
 
 ---
 
@@ -196,7 +197,7 @@ make clean
 
 - **[`src/`](src/)**
   - **[`src/demo/`](src/demo/)**：存放各項指令集特徵與編譯器模式展示源碼（共 25 個範例，依年代前綴命名）。
-  - **[`src/perf/`](src/perf/)**：存放具備測量性質的微基準測試源碼（`2008_rdtscp.s`, `2010_aes.s`, `2011_vzeroupper.s`, `2013_mul_lat.s`, `2013_simd_add8.s`）。
+  - **[`src/perf/`](src/perf/)**：存放具備測量性質的微基準測試源碼（`2008_rdtscp.s`, `2010_aes.s`, `2011_vzeroupper.s`, `2013_mul_lat.s`, `2013_simd_add8.s`, `branch-predict.s`）。
 - **`bin/`**
   - **`bin/demo/`**：編譯產出的 Demo 執行檔目錄。
   - **`bin/perf/`**：編譯產出的 Perf 執行檔目錄。
@@ -208,6 +209,9 @@ make clean
       - `sys_print_str str_ptr, str_len`: 使用 Linux `sys_write` (1) 系統呼叫直接輸出字串至標準輸出 (stdout)。
       - `sys_ioctl fd, cmd, arg`: 使用 Linux `sys_ioctl` (16) 系統呼叫對裝置進行底層控制（如終端機視窗大小）。
       - `sys_sleep_ms ms` / `sleep_ms`: 使用 Linux `sys_nanosleep` (35) 系統呼叫暫停指定毫秒數 (ms)，符合 x86_64 ABI 規範。
+    - [`time.inc`](include/time.inc)：
+      - `perf_start [out_reg=rax]`: 依據 Intel 最佳化參考手冊黃金標準（`lfence + rdtsc + lfence`）採樣起始時間戳，消除亂序推測偷跑。
+      - `perf_end [out_reg=rax] [start_reg]`: 依據 Intel 標準（`rdtscp + lfence`）序列化採樣結束時間戳與 Core ID，可直接傳入起始暫存器自動計算時脈週期差值（Delta）。
     - [`print.inc`](include/print.inc)：
       - `print_hex`: 核心十六進位格式化函數（自動忽略高位前綴 0，支援 0~64-bit 任意數值輸出）。
       - `print_dec`: 32-bit (4-byte) 無號整數十進位格式化輸出函數。

@@ -3,6 +3,7 @@
 
 .include "system.inc"
 .include "print.inc"
+.include "time.inc"
 
 # -------------------------------------------------------------
 # 基準測試重複次數 (1,000,000 次 / 1M iters)
@@ -101,46 +102,19 @@ _start:
     sys_print_str title_msg, title_len
 
     # --- 測量 1: 普通加法 (Scalar) ---
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    mov r12, rax
-
+    perf_start r12
     call bench_scalar
-
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    sub rax, r12
-    mov r13, rax           # r13 = Scalar 耗費週期
+    perf_end r13, r12      # r13 = Scalar 耗費週期
 
     # --- 測量 2: 2 次 SSE 加法 ---
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    mov r12, rax
-
+    perf_start r12
     call bench_sse
-
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    sub rax, r12
-    mov r14, rax           # r14 = SSE 耗費週期
+    perf_end r14, r12      # r14 = SSE 耗費週期
 
     # --- 測量 3: 1 次 AVX2 加法 ---
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    mov r12, rax
-
+    perf_start r12
     call bench_avx2
-
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    sub rax, r12
-    mov r15, rax           # r15 = AVX2 耗費週期
+    perf_end r15, r12      # r15 = AVX2 耗費週期
 
     # 輸出結果
     sys_print_str msg_scalar, len_scalar

@@ -2,6 +2,7 @@
 .global _start
 .include "system.inc"
 .include "print.inc"
+.include "time.inc"
 
 # =============================================================
 # 效能評測: x86_64 乘法指令依賴鏈延遲評測 (Multiplication Latency Benchmark)
@@ -76,13 +77,10 @@ _start:
     # =========================================================
     # 測試 1: LEA 暫存器算術合成乘 3 (lea rax, [rax + rax*2])
     # =========================================================
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    mov r12, rax            # r12 = 開始 TSC
+    perf_start r12
 
     mov rax, 1              # 初始值 = 1
-    mov ecx, ITERS          # 迴圈計數器 (必須在 rdtscp 之後設定!)
+    mov ecx, ITERS          # 迴圈計數器 (必須在 perf_start 之後設定!)
 .Lloop_lea:
     .rept 10
     lea rax, [rax + rax*2]
@@ -90,11 +88,7 @@ _start:
     dec ecx
     jnz .Lloop_lea
 
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    sub rax, r12
-    mov r14, rax            # r14 = 總週期
+    perf_end r14, r12       # r14 = 總週期
 
     sys_print_str lea_msg, lea_len
     mov rdi, r14
@@ -105,10 +99,7 @@ _start:
     # =========================================================
     mov rbx, 3              # 乘數 = 3
 
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    mov r12, rax
+    perf_start r12
 
     mov rax, 1
     mov ecx, ITERS
@@ -119,11 +110,7 @@ _start:
     dec ecx
     jnz .Lloop_imul_reg
 
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    sub rax, r12
-    mov r14, rax
+    perf_end r14, r12
 
     sys_print_str imul_reg_msg, imul_reg_len
     mov rdi, r14
@@ -133,10 +120,7 @@ _start:
     # 測試 3: IMUL 唯讀記憶體相乘 (imul rax, [mem_val])
     # 記憶體位址為獨立常數，快取載入與乘法器管線重疊
     # =========================================================
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    mov r12, rax
+    perf_start r12
 
     mov rax, 1
     mov ecx, ITERS
@@ -147,11 +131,7 @@ _start:
     dec ecx
     jnz .Lloop_imul_mem
 
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    sub rax, r12
-    mov r14, rax
+    perf_end r14, r12
 
     sys_print_str imul_mem_msg, imul_mem_len
     mov rdi, r14
@@ -161,10 +141,7 @@ _start:
     # 測試 4: IMUL Store-to-Load Forwarding 記憶體真實相依
     # 強制將上一輪的 rax 寫入記憶體，再由 IMUL 讀回，測量 Store Forwarding 懲罰
     # =========================================================
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    mov r12, rax
+    perf_start r12
 
     mov rax, 3
     mov ecx, ITERS
@@ -177,11 +154,7 @@ _start:
     dec ecx
     jnz .Lloop_imul_fwd
 
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    sub rax, r12
-    mov r14, rax
+    perf_end r14, r12
 
     sys_print_str imul_fwd_msg, imul_fwd_len
     mov rdi, r14
@@ -192,10 +165,7 @@ _start:
     # =========================================================
     mov rbx, 3
 
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    mov r12, rax
+    perf_start r12
 
     mov rax, 1
     mov ecx, ITERS
@@ -206,11 +176,7 @@ _start:
     dec ecx
     jnz .Lloop_mul_reg
 
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    sub rax, r12
-    mov r14, rax
+    perf_end r14, r12
 
     sys_print_str mul_reg_msg, mul_reg_len
     mov rdi, r14
@@ -222,10 +188,7 @@ _start:
     # =========================================================
     mov rbx, 3
 
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    mov r12, rax
+    perf_start r12
 
     mov rdx, 1              # rdx = 初始值
     mov ecx, ITERS
@@ -236,11 +199,7 @@ _start:
     dec ecx
     jnz .Lloop_mulx_reg
 
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    sub rax, r12
-    mov r14, rax
+    perf_end r14, r12
 
     sys_print_str mulx_reg_msg, mulx_reg_len
     mov rdi, r14
@@ -249,10 +208,7 @@ _start:
     # =========================================================
     # 測試 7: MULX (BMI2) 唯讀記憶體相乘 (mulx r8, rdx, [mem_val])
     # =========================================================
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    mov r12, rax
+    perf_start r12
 
     mov rdx, 1
     mov ecx, ITERS
@@ -263,11 +219,7 @@ _start:
     dec ecx
     jnz .Lloop_mulx_mem
 
-    rdtscp
-    shl rdx, 32
-    or rax, rdx
-    sub rax, r12
-    mov r14, rax
+    perf_end r14, r12
 
     sys_print_str mulx_mem_msg, mulx_mem_len
     mov rdi, r14
