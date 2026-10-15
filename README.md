@@ -184,11 +184,11 @@ make clean
 | **2013** | **進階向量** | `fma` | [2013_fma.s](src/demo/2013_fma.s) | `vfmadd213ss`, `vfmadd231ps` | 融合乘加 $A \times B + C$（無中間捨入高精度純量/向量計算） | 純量與向量 FMA 計算結果 |
 | **2014** | **整數運算** | `adx` | [2014_adx.s](src/demo/2014_adx.s) | `adcx`, `adox` | 大數密碼學雙鏈路平行進位加法（CF/OF 雙進位鏈平行運算） | ADCX 與 ADOX 平行加法計算結果 |
 | **2015** | **快取架構** | `clflushopt` | [2015_clflushopt.s](src/demo/2015_clflushopt.s) | `clflushopt`, `mfence` | 快取行最佳化弱序刷寫指令 (Cache Line Flush Optimized) | 刷寫前後記憶體數值驗證與生命週期 |
-| **2008** | **效能 (Perf)** | `rdtscp` | [2008_rdtscp.s](src/perf/2008_rdtscp.s) | `rdtscp` | 序列化讀取時間戳計數器 (100ms 基準測試) 與 CPU Core ID 遷移檢測 | 時脈週期增量與目前運行的 Core ID |
-| **2010** | | `aes` | [2010_aes.s](src/perf/2010_aes.s) | `aesenc` vs 純軟體 | AES-NI 硬體加速 vs 純軟體實作（數值正確性驗證與 100k 次效能對比） | 軟硬體輸出完全一致驗證與 ~150x 效能差距 |
-| **2011** | | AVX-SSE 懲罰 | [2011_vzeroupper.s](src/perf/2011_vzeroupper.s) | `vzeroupper` | AVX-SSE 轉換懲罰基準測試（100k 次迭代時序對比） | 有/無 vzeroupper 週期與 Penalty 差距 |
-| **2013** | | SIMD 比較 | [2013_simd_add8.s](src/perf/2013_simd_add8.s) | `add`, `paddd`, `vpaddd` | 8 整數加法效能基準測試（純量 vs SSE vs AVX2） | 100 萬次迭代週期對比 |
-| **2013** | | 乘法延遲 | [2013_mul_lat.s](src/perf/2013_mul_lat.s) | `lea`, `imul`, `mul`, `mulx` | x86_64 乘法指令依賴鏈延遲評測（暫存器 vs 記憶體 vs Store-Fwd） | 7 種乘法模式之實際時脈週期與延遲差距 |
+| **2008** | **時間與識別** | `rdtscp` | [2008_rdtscp.s](src/demo/2008_rdtscp.s) | `rdtscp` | 序列化讀取時間戳計數器 (100ms 基準測試) 與 CPU Core ID 遷移檢測 | 時脈週期增量與目前運行的 Core ID |
+| **2010** | **效能 (Perf)** | `aes` | [aes.s](src/perf/aes.s) | `aesenc` vs 純軟體 | AES-NI 硬體加速 vs 純軟體實作（數值正確性驗證與 100k 次效能對比） | 軟硬體輸出完全一致驗證與 ~150x 效能差距 |
+| **2011** | | AVX-SSE 懲罰 | [vzeroupper.s](src/perf/vzeroupper.s) | `vzeroupper` | AVX-SSE 轉換懲罰基準測試（100k 次迭代時序對比） | 有/無 vzeroupper 週期與 Penalty 差距 |
+| **2013** | | SIMD 比較 | [simd_add8.s](src/perf/simd_add8.s) | `add`, `paddd`, `vpaddd` | 8 整數加法效能基準測試（純量 vs SSE vs AVX2） | 100 萬次迭代週期對比 |
+| **2013** | | 乘法延遲 | [mul_lat.s](src/perf/mul_lat.s) | `lea`, `imul`, `mul`, `mulx` | x86_64 乘法指令依賴鏈延遲評測（暫存器 vs 記憶體 vs Store-Fwd） | 7 種乘法模式之實際時脈週期與延遲差距 |
 | **-** | | 分支預測 | [branch-predict.s](src/perf/branch-predict.s) | `jl` vs `cmovge` | 分支預測效能基準測試（已排序 vs 未排序陣列條件累加 vs 無分支 CMOV） | 6,553 萬次判斷週期對比、Sum 驗證與 4~5x 延遲差距 |
 
 ---
@@ -196,8 +196,8 @@ make clean
 ## 專案目錄結構
 
 - **[`src/`](src/)**
-  - **[`src/demo/`](src/demo/)**：存放各項指令集特徵與編譯器模式展示源碼（共 25 個範例，依年代前綴命名）。
-  - **[`src/perf/`](src/perf/)**：存放具備測量性質的微基準測試源碼（`2008_rdtscp.s`, `2010_aes.s`, `2011_vzeroupper.s`, `2013_mul_lat.s`, `2013_simd_add8.s`, `branch-predict.s`）。
+  - **[`src/demo/`](src/demo/)**：存放各項指令集特徵與編譯器模式展示源碼（共 26 個範例，依年代前綴命名）。
+  - **[`src/perf/`](src/perf/)**：存放具備測量性質的微基準測試源碼（`aes.s`, `branch-predict.s`, `mul_lat.s`, `simd_add8.s`, `vzeroupper.s`）。
 - **`bin/`**
   - **`bin/demo/`**：編譯產出的 Demo 執行檔目錄。
   - **`bin/perf/`**：編譯產出的 Perf 執行檔目錄。
@@ -229,6 +229,7 @@ make clean
     - [`lock.md`](docs/lock.md)：x86-64 LOCK 前綴與原子指令全解（硬體白名單、隱式 XCHG、MESI 快取鎖、四大天王指令與 LOCK vs. MFENCE 微架構對決）。
     - [`microcode.md`](docs/microcode.md)：CPU 微碼（Microcode）深度解析（CISC/RISC 融合架構、MSROM 解碼器、Patch RAM 線上熱修補機制與微碼效能開銷）。
     - [`nic.md`](docs/nic.md)：PCIe、Intel DDIO 與高效能網卡（NIC）微架構全解（Snoop DMA 延遲懲罰、TLP 定序鐵律、DDIO 直通 L3、描述元環與 DPDK 核心旁路）。
+    - [`port_usage.md`](docs/port_usage.md)：CPU 執行通道（Execution Ports）與資源競爭全解指南（Skylake 8-Port vs Golden Cove 12-Port 拓撲、Port Contention 塞車瓶頸、LEA 負載均衡與 Linux perf PMU 分析）。
 - **[`makefile`](makefile)**
   - 編譯選項：`-nostdlib -march=native -g -no-pie -Wa,-I$(CURDIR)/include -Wa,-Iinclude`。
   - 支援目標：`make all`, `make demo`, `make perf`, `make run`, `make run-demo`, `make run-perf`, `make clean`。
